@@ -9,7 +9,7 @@ from fretboardgtr.elements.cross import Cross
 from fretboardgtr.elements.fret_number import FretNumber
 from fretboardgtr.elements.frets import Fret
 from fretboardgtr.elements.neck_dots import NeckDot
-from fretboardgtr.elements.notes import FrettedNote, OpenNote
+from fretboardgtr.elements.notes import FrettedNote, OpenNote, Barre
 from fretboardgtr.elements.nut import Nut
 from fretboardgtr.elements.strings import String
 from fretboardgtr.elements.tuning import Tuning
@@ -209,7 +209,7 @@ class FretBoard(FretBoardLike):
             _note = self._get_fretted_note(position, note, root)
         self.elements.notes.append(_note)
 
-    def add_note(self, string_no: int, note: str, root: Optional[str] = None) -> None:
+    def _add_note(self, string_no: int, note: str, root: Optional[str] = None) -> None:
         """Build and add notes element."""
         if string_no < 0 or string_no > len(self.tuning):
             raise ValueError(f"String number is invalid. Tuning is {self.tuning}")
@@ -233,6 +233,46 @@ class FretBoard(FretBoardLike):
 
         for idx in indices:
             self._add_single_note(string_no, idx, note, root)
+
+    def add_note(self, string_no: int, note: str, root: Optional[str] = None) -> None:
+        string_good = self.fretboard.get_string_with_good_index(string_no)
+        _add_note(string_good, note, root)
+
+    def add_index(self, string_no: int, fret: int, text: Optional[str] = "") -> None:
+        if (fret is None):
+            string_good = self.fretboard.get_string_with_good_index(string_no)
+            position = self.fretboard.get_cross_position(string_good)
+            cross = Cross(position, config=self.config.cross)
+            self.elements.crosses.append(cross)
+        else:
+            self.add_barre(string_no, string_no, fret, text)
+
+    def _get_barre(
+        self, position_from: Tuple[float, float], position_to: Tuple[float, float], text: str) -> Barre:
+        config = copy.copy(self.config.barres)
+
+        pos, size = self.fretboard.get_bounding_box(position_from, position_to, config.radius)
+        _barre = Barre(pos, size, text, config=config)
+        return _barre
+
+    def add_barre(self, string_from: int, string_to: int, fret: int, text: Optional[str] = "") -> None:
+        """Build and add barre element."""
+        if string_from < 0 or string_from > len(self.tuning):
+            raise ValueError(f"String 'from' number is invalid. Tuning is {self.tuning}")
+
+        if string_to < 0 or string_to > len(self.tuning):
+            raise ValueError(f"String 'to' number is invalid. Tuning is {self.tuning}")
+
+        index = fret - self.config.general.first_fret + 1
+        if (index < 1 ) or (index > (self.config.general.last_fret - self.config.general.first_fret)):
+            return
+        string_from_good = self.fretboard.get_string_with_good_index(string_from)
+        string_to_good = self.fretboard.get_string_with_good_index(string_to)
+        position_from = self.fretboard.get_single_note_position(string_from_good, index)
+        position_to = self.fretboard.get_single_note_position(string_to_good, index)
+        _barre : Barre
+        _barre = self._get_barre(position_from, position_to, text)
+        self.elements.notes.append(_barre)
 
     def add_single_note_from_index(
         self, string_no: int, index: int, root: Optional[str] = None
@@ -266,7 +306,7 @@ class FretBoard(FretBoardLike):
             if finger_position <= 0:
                 return None
         if repeat_over_fretboard:
-            self.add_note(string_no, string_note, root)
+            self._add_note(string_no, string_note, root)
         else:
             self._add_single_note(string_no, finger_position, string_note, root)
 
@@ -283,7 +323,7 @@ class FretBoard(FretBoardLike):
             notes = scale_to_enharmonic(scale.notes)
         for string_no, _ in enumerate(self.tuning):
             for note in notes:
-                self.add_note(string_no, note, scale.root)
+                self._add_note(string_no, note, scale.root)
 
     def add_fingering(
         self, fingering: List[Optional[int]], root: Optional[str] = None

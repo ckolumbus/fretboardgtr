@@ -118,3 +118,64 @@ class FrettedNote(FretBoardElement):
         note.add(circle)
         note.add(text)
         return note
+
+@dataclass
+class BarreConfig(ConfigIniter):
+    radius: int = 20
+    color: str = BLACK
+    stroke_color: str = BLACK
+    stroke_width: int = 3
+    text_color: str = WHITE
+    fontsize: int = 20
+    fontweight: str = "bold"
+
+
+class Barre(FretBoardElement):
+    """Barre elements to be drawn in the final fretboard."""
+
+    def __init__(
+        self,
+        position: Tuple[float, float],
+        size: Tuple[float, float],
+        text: str,
+        config: Optional[BarreConfig] = None,
+    ):
+        self.config = config if config else BarreConfig()
+        self.pos = position
+        self.size = size
+        self.text = text
+
+    def get_svg(self) -> svgwrite.base.BaseElement:
+        """Convert the Barre to a svgwrite object.
+
+        This maps the BarreConfig configuration attributes to the
+        svg attributes
+        """
+        barre = svgwrite.container.Group()
+
+        print(self.pos)
+        print(self.size)
+
+        rect = svgwrite.shapes.Rect(
+            self.pos,
+            self.size,
+            rx=self.config.radius,
+            ry=self.config.radius,
+            fill=self.config.color,
+            stroke=self.config.stroke_color,
+            stroke_width=self.config.stroke_width,
+        )
+
+        text = svgwrite.text.Text(
+            self.text,
+            insert=(self.pos[0] + self.size[0]/2, self.pos[1]+self.size[1]/2),
+            dy=[TEXT_OFFSET],
+            font_size=self.config.fontsize,
+            fill=self.config.text_color,
+            font_weight="bold",
+            style=TEXT_STYLE,
+        )
+
+        barre.add(rect)
+        barre.add(text)
+        return barre

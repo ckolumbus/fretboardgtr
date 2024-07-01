@@ -6,7 +6,7 @@ from fretboardgtr.elements.cross import CrossConfig
 from fretboardgtr.elements.fret_number import FretNumberConfig
 from fretboardgtr.elements.frets import FretConfig
 from fretboardgtr.elements.neck_dots import NeckDotConfig
-from fretboardgtr.elements.notes import FrettedNoteConfig, OpenNoteConfig
+from fretboardgtr.elements.notes import FrettedNoteConfig, OpenNoteConfig, BarreConfig
 from fretboardgtr.elements.nut import NutConfig
 from fretboardgtr.elements.strings import StringConfig
 from fretboardgtr.elements.tuning import TuningConfig
@@ -53,6 +53,7 @@ class FretBoardConfig(ConfigIniter):
     StringConfig
     OpenNoteConfig
     FrettedNoteConfig
+    BarreConfig
     CrossConfig
     """
 
@@ -66,6 +67,7 @@ class FretBoardConfig(ConfigIniter):
     strings: StringConfig = field(default_factory=StringConfig)
     open_notes: OpenNoteConfig = field(default_factory=OpenNoteConfig)
     fretted_notes: FrettedNoteConfig = field(default_factory=FrettedNoteConfig)
+    barres: BarreConfig = field(default_factory=BarreConfig)
     cross: CrossConfig = field(default_factory=CrossConfig)
 
     def validate(self) -> "FretBoardConfig":
