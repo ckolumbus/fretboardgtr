@@ -22,7 +22,7 @@ class VerticalFretBoard:
         return _list
 
     def get_string_with_good_index(self, _string: int) -> int:
-        return (len(self.tuning)-1 - _string)
+        return _string
 
     def get_background_start_position(self) -> Tuple[float, float]:
         open_fret_height = self.config.general.fret_height

@@ -22,7 +22,7 @@ class HorizontalFretBoard:
         return _list[::-1]
 
     def get_string_with_good_index(self, _string: int) -> int:
-        return _string
+        return (len(self.tuning)-1 - _string)
 
     def get_background_start_position(self) -> Tuple[float, float]:
         open_fret_width = self.config.general.fret_width
