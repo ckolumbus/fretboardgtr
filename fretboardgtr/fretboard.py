@@ -236,7 +236,27 @@ class FretBoard(FretBoardLike):
 
     def add_note(self, string_no: int, note: str, root: Optional[str] = None) -> None:
         string_good = self.fretboard.get_string_with_good_index(string_no)
-        _add_note(string_good, note, root)
+        self._add_note(string_good, note, root)
+
+
+    def add_cfs(self, elements: List[ Tuple[str, int, Union[Tuple[int,int], int]] ] ) -> None:
+        for el in elements:
+            self.add_cf(el[0], el[1], el[2])
+
+    def add_cf(self, finger: str, fret: int, string: Union[Tuple[int,int], int]) -> None:
+
+        if (isinstance(string, Tuple)):
+            self.add_barre(string, fret, finger)
+
+        elif (isinstance(string, int)) :
+            if (fret is None):
+                string_good = self.fretboard.get_string_with_good_index(string)
+                position = self.fretboard.get_cross_position(string_good)
+                cross = Cross(position, config=self.config.cross)
+                self.elements.crosses.append(cross)
+            else:
+                self.add_barre((string, string), fret, finger)
+            pass
 
     def add_index(self, string_no: int, fret: int, text: Optional[str] = "") -> None:
         if (fret is None):
@@ -245,7 +265,7 @@ class FretBoard(FretBoardLike):
             cross = Cross(position, config=self.config.cross)
             self.elements.crosses.append(cross)
         else:
-            self.add_barre(string_no, string_no, fret, text)
+            self.add_barre((string_no, string_no), fret, text)
 
     def _get_barre(
         self, position_from: Tuple[float, float], position_to: Tuple[float, float], text: str) -> Barre:
@@ -255,19 +275,19 @@ class FretBoard(FretBoardLike):
         _barre = Barre(pos, size, text, config=config)
         return _barre
 
-    def add_barre(self, string_from: int, string_to: int, fret: int, text: Optional[str] = "") -> None:
+    def add_barre(self, strings: Tuple[int,int], fret: int, text: Optional[str] = "") -> None:
         """Build and add barre element."""
-        if string_from < 0 or string_from > len(self.tuning):
+        if strings[0] < 0 or strings[0] > len(self.tuning):
             raise ValueError(f"String 'from' number is invalid. Tuning is {self.tuning}")
 
-        if string_to < 0 or string_to > len(self.tuning):
+        if strings[1] < 0 or strings[1] > len(self.tuning):
             raise ValueError(f"String 'to' number is invalid. Tuning is {self.tuning}")
 
         index = fret - self.config.general.first_fret + 1
         if (index < 1 ) or (index > (self.config.general.last_fret - self.config.general.first_fret)):
             return
-        string_from_good = self.fretboard.get_string_with_good_index(string_from)
-        string_to_good = self.fretboard.get_string_with_good_index(string_to)
+        string_from_good = self.fretboard.get_string_with_good_index(strings[0])
+        string_to_good = self.fretboard.get_string_with_good_index(strings[1])
         position_from = self.fretboard.get_single_note_position(string_from_good, index)
         position_to = self.fretboard.get_single_note_position(string_to_good, index)
         _barre : Barre
@@ -281,7 +301,8 @@ class FretBoard(FretBoardLike):
         string_note = self.tuning[string_no]
         note = get_note_from_index(index, string_note)
 
-        self._add_single_note(string_no, index, note, root)
+        string_good = self.fretboard.get_string_with_good_index(string_no)
+        self._add_single_note(string_good, index, note, root)
 
     def _add_cross_or_note(
         self,
