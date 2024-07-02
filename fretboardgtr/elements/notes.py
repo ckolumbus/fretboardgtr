@@ -153,9 +153,6 @@ class Barre(FretBoardElement):
         """
         barre = svgwrite.container.Group()
 
-        print(self.pos)
-        print(self.size)
-
         rect = svgwrite.shapes.Rect(
             self.pos,
             self.size,
