@@ -9,7 +9,8 @@ from fretboardgtr.elements.cross import Cross
 from fretboardgtr.elements.fret_number import FretNumber
 from fretboardgtr.elements.frets import Fret
 from fretboardgtr.elements.neck_dots import NeckDot
-from fretboardgtr.elements.notes import FrettedNote, OpenNote, Barre
+from fretboardgtr.elements.notes import FrettedNote, OpenNote
+from fretboardgtr.elements.finger import Finger
 from fretboardgtr.elements.nut import Nut
 from fretboardgtr.elements.strings import String
 from fretboardgtr.elements.tuning import Tuning
@@ -29,6 +30,14 @@ from fretboardgtr.utils import (
     scale_to_enharmonic,
 )
 
+from typing import NewType
+
+# Tuple 
+#  1 : String range of single string
+#  2 : fret 
+#  3 : text (e.g. finger number)
+FingerPos = NewType('FingerPos', Tuple[Union[ Tuple[int,int], int], int, Optional[str]]) 
+FingerSet = NewType('FingerSet', List[ FingerPos ])
 
 def build_config(config: Optional[Union[Dict, FretBoardConfig]]) -> FretBoardConfig:
     if config is None:
@@ -239,43 +248,78 @@ class FretBoard(FretBoardLike):
         self._add_note(string_good, note, root)
 
 
-    def add_cfs(self, elements: List[ Tuple[str, int, Union[Tuple[int,int], int]] ] ) -> None:
-        for el in elements:
-            self.add_cf(el[0], el[1], el[2])
+    def _get_frets_for_string(
+        self, string_no: int, fingerset: FingerSet
+    ) -> List[int]:
+        frets: List[int] = []
+        frets.extend([f[1] for f in fingerset if (isinstance(f[0],int)   and string_no == f[0]) ])
+        frets.extend([f[1] for f in fingerset if (isinstance(f[0],Tuple) and string_no in range(f[0][0], f[0][1]+1)) ])
 
-    def add_cf(self, finger: str, fret: int, string: Union[Tuple[int,int], int]) -> None:
+        return frets
 
-        if (isinstance(string, Tuple)):
-            self.add_barre(string, fret, finger)
+    def _add_note_for_fingerset(
+            self,
+            string_no: int,
+            fret: int,
+            root: str,
+            fingers: FingerSet
+    ) -> None:
+        if (fret is not None):
+            frets_on_string = self._get_frets_for_string(string_no, fingers)
+            # if "None" is part of frets on string, then the string is to be muted
+            if (None not in frets_on_string and fret == max(frets_on_string)):
+                self.add_single_note_from_index(string_no, fret, root)
 
-        elif (isinstance(string, int)) :
-            if (fret is None):
-                string_good = self.fretboard.get_string_with_good_index(string)
+    def add_notes_from_fingerset(
+        self, fingers: FingerSet, root: Optional[str] = None
+    ) -> None:
+        for finger in fingers:
+            strings = finger[0]
+            fret = finger[1]
+            if (isinstance(strings,Tuple)):
+                for s in range(strings[0], strings[1]+1):
+                    self._add_note_for_fingerset(s, fret, root, fingers)
+            else:
+                self._add_note_for_fingerset(strings, fret, root, fingers)
+
+    def add_fingerset(self, fingers: FingerSet, show_text=True ) -> None:
+        for finger in fingers:
+            string_no = finger[0]
+            frets = finger[1]
+            if (len(finger) == 3) and show_text:
+                text=finger[2]
+            else:
+                text = ""
+
+            f : FingerPos = (string_no, frets, text)
+            self.add_fingerpos(f)
+
+    def add_fingerpos(
+        self, fingerpos : FingerPos
+    ) -> None:
+
+        if (isinstance(fingerpos[0], Tuple)):
+            self.add_finger_element(fingerpos[0], fingerpos[1], fingerpos[2])
+
+        elif (isinstance(fingerpos[0], int)) :
+            if (fingerpos[1] is None):
+                string_good = self.fretboard.get_string_with_good_index(fingerpos[0])
                 position = self.fretboard.get_cross_position(string_good)
                 cross = Cross(position, config=self.config.cross)
                 self.elements.crosses.append(cross)
             else:
-                self.add_barre((string, string), fret, finger)
+                self.add_finger_element((fingerpos[0], fingerpos[0]), fingerpos[1], fingerpos[2])
             pass
 
-    def add_index(self, string_no: int, fret: int, text: Optional[str] = "") -> None:
-        if (fret is None):
-            string_good = self.fretboard.get_string_with_good_index(string_no)
-            position = self.fretboard.get_cross_position(string_good)
-            cross = Cross(position, config=self.config.cross)
-            self.elements.crosses.append(cross)
-        else:
-            self.add_barre((string_no, string_no), fret, text)
+    def _get_finger_element(
+        self, position_from: Tuple[float, float], position_to: Tuple[float, float], text: str) -> Finger:
+        config = copy.copy(self.config.fingers)
 
-    def _get_barre(
-        self, position_from: Tuple[float, float], position_to: Tuple[float, float], text: str) -> Barre:
-        config = copy.copy(self.config.barres)
+        pos, size = self.fretboard.get_bounding_box(position_to, position_from, config.radius)
+        _finger = Finger(pos, size, text, config=config)
+        return _finger
 
-        pos, size = self.fretboard.get_bounding_box(position_from, position_to, config.radius)
-        _barre = Barre(pos, size, text, config=config)
-        return _barre
-
-    def add_barre(self, strings: Tuple[int,int], fret: int, text: Optional[str] = "") -> None:
+    def add_finger_element(self, strings: Tuple[int,int], fret: int, text: Optional[str] = "") -> None:
         """Build and add barre element."""
         if strings[0] < 0 or strings[0] > len(self.tuning):
             raise ValueError(f"String 'from' number is invalid. Tuning is {self.tuning}")
@@ -290,18 +334,19 @@ class FretBoard(FretBoardLike):
         string_to_good = self.fretboard.get_string_with_good_index(strings[1])
         position_from = self.fretboard.get_single_note_position(string_from_good, index)
         position_to = self.fretboard.get_single_note_position(string_to_good, index)
-        _barre : Barre
-        _barre = self._get_barre(position_from, position_to, text)
-        self.elements.notes.append(_barre)
+        _finger : Finger
+        _finger = self._get_finger_element(position_from, position_to, text)
+        self.elements.notes.append(_finger)
 
     def add_single_note_from_index(
-        self, string_no: int, index: int, root: Optional[str] = None
+        self, string_no: int, fret: int, root: Optional[str] = None
     ) -> None:
         """Build and add background element."""
         string_note = self.tuning[string_no]
-        note = get_note_from_index(index, string_note)
+        note = get_note_from_index(fret, string_note)
 
         string_good = self.fretboard.get_string_with_good_index(string_no)
+        index = fret - (self.fretboard.config.general.first_fret - 1)
         self._add_single_note(string_good, index, note, root)
 
     def _add_cross_or_note(
